@@ -10,39 +10,43 @@ import os
 import openai
 from openai import OpenAI
 
-#load_dotenv()
-openai.api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
-
-#import cmdstanpy
-#cmdstanpy.install_cmdstan()
-
+# Detectar si estamos en Streamlit Cloud
+def running_in_streamlit_cloud():
+    return os.environ.get("STREAMLIT_SERVER_HEADLESS") == "1"
+# Obtener la API key según el entorno
+def get_openai_api_key():
+    if running_in_streamlit_cloud():
+        return st.secrets["OPENAI_API_KEY"]
+    else:
+        load_dotenv()
+        return os.getenv("OPENAI_API_KEY")
 
 # Definir las fechas globalmente
 end_date = datetime.now()
 start_date = end_date - timedelta(days=5*365)
 
+# Descargar las empresas con mayor potencial tras aplicar el modelo de predicción
+top_stocks = 'top_28_growth_stocks.csv'
+df = pd.read_csv(top_stocks)
+# Creamos listas con los tickers y nombres de las empresas
+top_stocks_tickers = df['Ticker'].tolist()
+top_stocks_names = df['name'].tolist()
+print("top_stocks_tickers: ")
+print(top_stocks_tickers)
+print("top_stocks_names: ")
+print(top_stocks_names)
+# Comprobar si los tickers existen en yfinance
+for ticker, name in zip(top_stocks_tickers, top_stocks_names):
+    try:
+        data = yf.Ticker(ticker).history(period="1d")
+        if data.empty:
+            print(f"Ticker NO válido o sin datos: {ticker} ({name})")
+    except Exception as e:
+        print(f"Error con {ticker} ({name}): {e}")
+
 # Descargar datos
 @st.cache_data
 def cargar_datos():
-    
-    # Descargar las empresas con mayor potencial tras aplicar el modelo de predicción
-    top_stocks = 'top_28_growth_stocks.csv'
-    df = pd.read_csv(top_stocks)
-    # Creamos listas con los tickers y nombres de las empresas
-    top_stocks_tickers = df['Ticker'].tolist()
-    top_stocks_names = df['name'].tolist()
-    print("top_stocks_tickers: ")
-    print(top_stocks_tickers)
-    print("top_stocks_names: ")
-    print(top_stocks_names)
-    # Comprobar si los tickers existen en yfinance
-    for ticker, name in zip(top_stocks_tickers, top_stocks_names):
-        try:
-            data = yf.Ticker(ticker).history(period="1d")
-            if data.empty:
-                print(f"Ticker NO válido o sin datos: {ticker} ({name})")
-        except Exception as e:
-            print(f"Error con {ticker} ({name}): {e}")
 
     # Crear un diccionario con los tickers y nombres de las empresas
     symbols = dict(zip(top_stocks_names, top_stocks_tickers))
@@ -162,29 +166,18 @@ if st.button("Generar cartera óptima"):
         # Convertir divisa a EUR si es necesario
 
         # Mapeo de divisas por activo (según Yahoo Finance)
-        divisas = {
-            "AAPL": "USD", "MSFT": "USD", "AMZN": "USD", "GOOGL": "USD", "TSLA": "USD",
-            "BRK-B": "USD", "JNJ": "USD", "XOM": "USD", "JPM": "USD", "V": "USD",
-            "NESN.SW": "CHF", "ROG.SW": "CHF", "005930.KS": "KRW", "7203.T": "JPY", "6758.T": "JPY",
-            "BABA": "HKD", "0700.HK": "HKD", "HSBA.L": "GBP", "BP.L": "GBP", "SHEL.L": "GBP",
-            "ULVR.L": "GBP", "MC.PA": "EUR", "TTE.PA": "EUR", "SIE.DE": "EUR", "VOW3.DE": "EUR",
-            "SAP.DE": "EUR", "SAN.MC": "EUR", "BBVA.MC": "EUR", "PBR": "BRL", "VALE": "BRL",
-            "IBN": "INR", "RELIANCE.BO": "INR", "INFY": "INR", "2318.HK": "HKD",
-            "0941.HK": "HKD", "RIO.L": "GBP", "BHP.AX": "AUD", "CBA.AX": "AUD",
-            "CSL.AX": "AUD", "NOVO-B.CO": "DKK", "AZN.L": "GBP", "ADS.DE": "EUR",
-            "HEIA.AS": "EUR", "PHIA.AS": "EUR", "ENEL.MI": "EUR", "RACE": "EUR", "2222.SR": "SAR",
-            "TME": "USD", "META": "USD", "PG": "USD", "KO": "USD",
-            "PEP": "USD", "MCD": "USD", "WMT": "USD", "COST": "USD", "INTC": "USD",
-            "AMD": "USD", "NVDA": "USD", "QCOM": "USD", "AVGO": "USD", "TXN": "USD",
-            "IBM": "USD", "ORCL": "USD", "CRM": "USD", "ADBE": "USD", "NFLX": "USD",
-            "T": "USD", "VZ": "USD", "TMUS": "USD", "PFE": "USD", "MRNA": "USD",
-            "MRK": "USD", "BMY": "USD", "AMGN": "USD", "GILD": "USD", "LLY": "USD",
-            "CVX": "USD", "COP": "USD", "SLB": "USD", "HAL": "USD", "MRO": "USD",
-            "LMT": "USD", "NOC": "USD", "RTX": "USD", "BA": "USD",
-            "GE": "USD", "HON": "USD", "MMM": "USD", "CAT": "USD", "DE": "USD",
-            "SBUX": "USD", "NKE": "USD", "LULU": "USD", "EL": "USD", "DPZ": "USD",
-            "BKNG": "USD", "AXP": "USD", "MA": "USD", "PYPL": "USD"
-        }
+        divisas = {}
+        for ticker in top_stocks_tickers:
+            try:
+                info = yf.Ticker(ticker).info
+                currency = info.get('currency', 'USD')  # Por defecto USD si no se encuentra
+                divisas[ticker] = currency
+            except Exception as e:
+                print(f"Error obteniendo divisa para {ticker}: {e}")
+                divisas[ticker] = 'USD'  # Asume USD si hay error
+
+        print("Diccionario de divisas actualizado:")
+        print(divisas)
 
         # Descargar tipos de cambio necesarios
         st.write("🔄 **Descargando tipos de cambio para convertir a EUR...**")
@@ -248,31 +241,31 @@ if st.button("Generar cartera óptima"):
         # Crear función para enviar promp a ChatGPT
         def generar_mensaje_inversion(perfil, valor_final, ganancia_pct, drawdown_pct, drawdown_inicio, drawdown_fin):
             prompt = f"""
-        Eres un asesor financiero que explica de forma clara y cercana los resultados de una inversión simulada.
+            Eres un asesor financiero que explica de forma clara y cercana los resultados de una inversión simulada.
 
-        Perfil del inversor: {perfil}.
-        Inversión inicial: 1.000€.
-        Valor actual después de 5 años: {valor_final:.2f}€.
-        Rentabilidad acumulada: {ganancia_pct:.2f}%.
+            Perfil del inversor: {perfil}.
+            Inversión inicial: 1.000€.
+            Valor actual después de 5 años: {valor_final:.2f}€.
+            Rentabilidad acumulada: {ganancia_pct:.2f}%.
 
-        El peor momento de esta cartera fue entre {drawdown_inicio} y {drawdown_fin}, con una caída del {drawdown_pct:.2f}% desde su máximo anterior.
+            El peor momento de esta cartera fue entre {drawdown_inicio} y {drawdown_fin}, con una caída del {drawdown_pct:.2f}% desde su máximo anterior.
 
-        Redacta una frase breve y empática que combine estos datos y le recuerde al usuario que mantener la calma es clave, adaptándola a su perfil de riesgo.
-        """
-            client = OpenAI(
-                api_key=st.secrets.get("OPENAI_API_KEY", os.environ.get("OPENAI_API_KEY"))
-            )
+            Redacta una frase breve y empática que combine estos datos y le recuerde al usuario que mantener la calma es clave, adaptándola a su perfil de riesgo.
+            """
+
+            key = get_openai_api_key()
+
+            client = OpenAI(api_key=key)
+
             response = client.chat.completions.create(
                 model="gpt-4o",
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "user", "content": prompt}],
                 temperature=0.8,
                 max_tokens=150
             )
 
             mensaje = response.choices[0].message.content.strip()
-
+        
             return mensaje
 
         with st.spinner("Generando análisis personalizado con IA..."):
