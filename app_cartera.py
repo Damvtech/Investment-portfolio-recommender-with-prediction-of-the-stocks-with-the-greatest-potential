@@ -38,6 +38,7 @@ def choose_tickers():
 
     return tickers_validos, names_validos
 
+@st.cache_data
 def cargar_datos():
     top_stocks_tickers, top_stocks_names = choose_tickers()
 
