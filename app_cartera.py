@@ -10,43 +10,37 @@ import os
 import openai
 from openai import OpenAI
 
-# Detectar si estamos en Streamlit Cloud
-def running_in_streamlit_cloud():
-    return os.environ.get("STREAMLIT_SERVER_HEADLESS") == "1"
-# Obtener la API key según el entorno
-def get_openai_api_key():
-    if running_in_streamlit_cloud():
-        return st.secrets["OPENAI_API_KEY"]
-    else:
-        load_dotenv()
-        return os.getenv("OPENAI_API_KEY")
-
 # Definir las fechas globalmente
 end_date = datetime.now()
 start_date = end_date - timedelta(days=5*365)
-
-# Descargar las empresas con mayor potencial tras aplicar el modelo de predicción
-top_stocks = 'top_28_growth_stocks.csv'
-df = pd.read_csv(top_stocks)
-# Creamos listas con los tickers y nombres de las empresas
-top_stocks_tickers = df['Ticker'].tolist()
-top_stocks_names = df['name'].tolist()
-print("top_stocks_tickers: ")
-print(top_stocks_tickers)
-print("top_stocks_names: ")
-print(top_stocks_names)
-# Comprobar si los tickers existen en yfinance
-for ticker, name in zip(top_stocks_tickers, top_stocks_names):
-    try:
-        data = yf.Ticker(ticker).history(period="1d")
-        if data.empty:
-            print(f"Ticker NO válido o sin datos: {ticker} ({name})")
-    except Exception as e:
-        print(f"Error con {ticker} ({name}): {e}")
+top_stocks_tickers= []
+top_stocks_names= []
 
 # Descargar datos
 @st.cache_data
+def choose_tickers():
+    top_stocks = 'top_28_growth_stocks.csv'
+    df = pd.read_csv(top_stocks)
+    tickers = df['Ticker'].tolist()
+    names = df['name'].tolist()
+
+    # Validar tickers válidos (opcional)
+    tickers_validos = []
+    names_validos = []
+    for ticker, name in zip(tickers, names):
+        try:
+            data = yf.Ticker(ticker).history(period="1d")
+            if not data.empty:
+                tickers_validos.append(ticker)
+                names_validos.append(name)
+        except Exception as e:
+            print(f"Error con {ticker}: {e}")
+
+    return tickers_validos, names_validos
+
 def cargar_datos():
+    
+    top_stocks_tickers,top_stocks_names = choose_tickers()
 
     # Crear un diccionario con los tickers y nombres de las empresas
     symbols = dict(zip(top_stocks_names, top_stocks_tickers))
@@ -165,6 +159,8 @@ if st.button("Generar cartera óptima"):
 
         # Convertir divisa a EUR si es necesario
 
+        top_stocks_tickers,top_stocks_names = choose_tickers()
+
         # Mapeo de divisas por activo (según Yahoo Finance)
         divisas = {}
         for ticker in top_stocks_tickers:
@@ -252,7 +248,17 @@ if st.button("Generar cartera óptima"):
 
             Redacta una frase breve y empática que combine estos datos y le recuerde al usuario que mantener la calma es clave, adaptándola a su perfil de riesgo.
             """
-
+            # Detectar si estamos en Streamlit Cloud
+            def running_in_streamlit_cloud():
+                return os.environ.get("STREAMLIT_SERVER_HEADLESS") == "1"
+            # Obtener la API key según el entorno
+            def get_openai_api_key():
+                if running_in_streamlit_cloud():
+                    return st.secrets["OPENAI_API_KEY"]
+                else:
+                    load_dotenv()
+                    return os.getenv("OPENAI_API_KEY")
+    
             key = get_openai_api_key()
 
             client = OpenAI(api_key=key)
