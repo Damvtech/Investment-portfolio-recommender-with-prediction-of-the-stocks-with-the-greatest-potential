@@ -39,24 +39,34 @@ def choose_tickers():
     return tickers_validos, names_validos
 
 def cargar_datos():
-    
-    top_stocks_tickers,top_stocks_names = choose_tickers()
+    top_stocks_tickers, top_stocks_names = choose_tickers()
 
-    # Crear un diccionario con los tickers y nombres de las empresas
+    # Si no hay tickers válidos, detenemos la ejecución
+    if not top_stocks_tickers:
+        st.error("No se han encontrado tickers válidos en el archivo CSV.")
+        st.stop()
+
     symbols = dict(zip(top_stocks_names, top_stocks_tickers))
 
-        # Puedes agregar más compañías aquí para tu MVP
-    
     data = pd.DataFrame()
     for company, symbol in symbols.items():
-        df = yf.download(symbol, start=start_date, end=end_date)['Close']
-        if not df.empty:
-            data[company] = df
-        else:
-            print(f"No se pudieron descargar los datos para {company} ({symbol}).")
-    return data.dropna()
+        try:
+            df = yf.download(symbol, start=start_date, end=end_date)
+            if not df.empty and 'Close' in df.columns:
+                data[company] = df['Close']
+            else:
+                print(f"No se obtuvieron datos válidos para {company} ({symbol}).")
+        except Exception as e:
+            print(f"Error descargando datos para {company} ({symbol}): {e}")
 
-data = cargar_datos()
+    if data.empty:
+        st.error("No se pudieron descargar datos históricos de ninguna empresa.")
+        st.stop()
+
+    return data.dropna(), top_stocks_tickers, top_stocks_names
+
+
+data, top_stocks_tickers, top_stocks_names = cargar_datos()
 
 # Rendimientos diarios
 daily_returns = data.pct_change().dropna()
