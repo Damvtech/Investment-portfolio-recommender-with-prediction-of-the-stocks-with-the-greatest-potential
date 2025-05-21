@@ -24,30 +24,31 @@ start_date = end_date - timedelta(days=5*365)
 # Descargar datos
 @st.cache_data
 def cargar_datos():
-    symbols = {
-    "Apple": "AAPL", "Microsoft": "MSFT", "Amazon": "AMZN", "Alphabet (Google)": "GOOGL", "Tesla": "TSLA",
-    "Berkshire Hathaway": "BRK-B", "Johnson & Johnson": "JNJ", "Exxon Mobil": "XOM", "JPMorgan Chase": "JPM", "Visa": "V",
-    "Nestlé": "NESN.SW", "Roche": "ROG.SW", "Samsung Electronics": "005930.KS", "Toyota": "7203.T", "Sony": "6758.T",
-    "Alibaba": "BABA", "Tencent": "0700.HK", "HSBC": "HSBA.L", "BP": "BP.L", "Shell": "SHEL.L",
-    "Unilever": "ULVR.L", "LVMH": "MC.PA", "TotalEnergies": "TTE.PA", "Siemens": "SIE.DE", "Volkswagen": "VOW3.DE",
-    "SAP": "SAP.DE", "Banco Santander": "SAN.MC", "BBVA": "BBVA.MC", "Petrobras": "PBR", "Vale": "VALE",
-    "ICICI Bank": "IBN", "Reliance Industries": "RELIANCE.BO", "Infosys": "INFY", "Ping An Insurance": "2318.HK",
-    "China Mobile": "0941.HK", "Rio Tinto": "RIO.L", "BHP Group": "BHP.AX", "Commonwealth Bank": "CBA.AX",
-    "CSL Limited": "CSL.AX", "Novo Nordisk": "NOVO-B.CO", "AstraZeneca": "AZN.L", "Adidas": "ADS.DE",
-    "Heineken": "HEIA.AS", "Philips": "PHIA.AS", "Enel": "ENEL.MI", "Ferrari": "RACE", "Saudi Aramco": "2222.SR",
-    "Tencent Music": "TME", "Meta Platforms (Facebook)": "META", "Procter & Gamble": "PG", "Coca-Cola": "KO",
-    "PepsiCo": "PEP", "McDonald's": "MCD", "Walmart": "WMT", "Costco": "COST", "Intel": "INTC",
-    "AMD": "AMD", "NVIDIA": "NVDA", "Qualcomm": "QCOM", "Broadcom": "AVGO", "Texas Instruments": "TXN",
-    "IBM": "IBM", "Oracle": "ORCL", "Salesforce": "CRM", "Adobe": "ADBE", "Netflix": "NFLX",
-    "AT&T": "T", "Verizon": "VZ", "T-Mobile": "TMUS", "Pfizer": "PFE", "Moderna": "MRNA",
-    "Merck": "MRK", "Bristol-Myers Squibb": "BMY", "Amgen": "AMGN", "Gilead Sciences": "GILD", "Eli Lilly": "LLY",
-    "Chevron": "CVX", "ConocoPhillips": "COP", "Schlumberger": "SLB", "Halliburton": "HAL", "Marathon Oil": "MRO",
-    "Lockheed Martin": "LMT", "Northrop Grumman": "NOC", "Raytheon Technologies": "RTX", "Boeing": "BA",
-    "General Electric": "GE", "Honeywell": "HON", "3M": "MMM", "Caterpillar": "CAT", "Deere & Company": "DE",
-    "Starbucks": "SBUX", "Nike": "NKE", "Lululemon": "LULU", "Estee Lauder": "EL", "Domino's Pizza": "DPZ",
-    "Booking Holdings": "BKNG", "American Express": "AXP", "Mastercard": "MA", "PayPal": "PYPL"
+    
+    # Descargar las empresas con mayor potencial tras aplicar el modelo de predicción
+    top_stocks = 'top_28_growth_stocks.csv'
+    df = pd.read_csv(top_stocks)
+    # Creamos listas con los tickers y nombres de las empresas
+    top_stocks_tickers = df['Ticker'].tolist()
+    top_stocks_names = df['name'].tolist()
+    print("top_stocks_tickers: ")
+    print(top_stocks_tickers)
+    print("top_stocks_names: ")
+    print(top_stocks_names)
+    # Comprobar si los tickers existen en yfinance
+    for ticker, name in zip(top_stocks_tickers, top_stocks_names):
+        try:
+            data = yf.Ticker(ticker).history(period="1d")
+            if data.empty:
+                print(f"Ticker NO válido o sin datos: {ticker} ({name})")
+        except Exception as e:
+            print(f"Error con {ticker} ({name}): {e}")
+
+    # Crear un diccionario con los tickers y nombres de las empresas
+    symbols = dict(zip(top_stocks_names, top_stocks_tickers))
+
         # Puedes agregar más compañías aquí para tu MVP
-    }
+    
     data = pd.DataFrame()
     for company, symbol in symbols.items():
         df = yf.download(symbol, start=start_date, end=end_date)['Close']
@@ -289,4 +290,24 @@ if st.button("Generar cartera óptima"):
             except Exception as e:
                 st.error(f"Ocurrió un error al generar el mensaje: {e}")
 
+        ## Preparar los datos para Prophet
+                #st.write("🔮 **Generando predicción de la cartera a 6 meses vista...**")
+                #cartera_df = cartera_valores.reset_index()
+                #cartera_df.columns = ['ds', 'y']  # Prophet requiere estas columnas
+        #
+                ## Crear y entrenar el modelo Prophet
+                #model = Prophet(interval_width=0.95)
+                #model.fit(cartera_df)
+        #
+                ## Hacer predicción a 6 meses vista
+                #future = model.make_future_dataframe(periods=180)  # 6 meses
+                #forecast = model.predict(future)
+        #
+                ## Graficar la predicción
+                #st.write("📉 **Predicción de la cartera a 6 meses vista:**")
+                #fig = model.plot(forecast)
+                #plt.title("Predicción de la cartera (6 meses vista)")
+                #plt.xlabel("Fecha")
+                #plt.ylabel("Valor de la cartera (EUR)")
+                #st.pyplot(fig)
 
