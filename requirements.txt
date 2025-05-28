@@ -2,7 +2,7 @@ streamlit==1.35.0
 pandas==2.2.2
 numpy>=1.26.0
 yfinance==0.2.36
-scipy==2.2.5#1.11.4
+scipy==2.2.5 #1.11.4
 matplotlib==3.8.4
 #python-dotenv==1.0.1
 datetime
